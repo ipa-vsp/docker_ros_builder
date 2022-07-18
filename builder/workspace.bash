@@ -88,6 +88,60 @@ function apt_get_install {
     fi
 }
 
+function pass_ci_token {
+    local rosinstall_file=$1; shift
+    if ! command -v gettext > /dev/null; then
+        apt_get_install gettext >/dev/null
+    fi
+    sed -i 's/https:\/\/git-ce\./https:\/\/gitlab-ci-token:\$\{CI_JOB_TOKEN\}\@git-ce\./g' $rosinstall_file
+    # Replace CI_JOB_TOKEN by its content
+    envsubst < $rosinstall_file > tmp.rosinstall
+    rm $rosinstall_file
+    mv tmp.rosinstall $rosinstall_file
+}
+
+function install_from_rosinstall {
+    local rosinstall_file=$1
+    local location=$2
+    # install vcstool
+    source "/opt/ros/$ROS_DISTRO/setup.bash"
+    if ! command -v vcstool > /dev/null; then
+        if [[ "$ROS_VERSION" -eq 1 ]]; then
+            echo "It is: $ROS_VERSION"
+            if [ "$ROS_DISTRO" = "noetic" ]; then
+                echo "It is: $ROS_DISTRO"
+                apt_get_install python3-vcstool > /dev/null
+            else
+                apt_get_install python-vcstool > /dev/null
+            fi
+        fi
+        if [[ "$ROS_VERSION" -eq 2 ]]; then
+            echo "It is: $ROS_DISTRO, $ROS_VERSION"
+            apt_get_install python3-vcstool > /dev/null
+        fi
+        if [[ "$ROS_VERSION" -ne 2 ]] && [[ "$ROS_VERSION" -ne 1 ]]; then
+            echo "Cannot get ROS_VERSION"
+            exit 1
+        fi
+    fi
+    # install git
+    if ! command -v git > /dev/null; then
+        apt_get_install git > /dev/null
+    fi
+    echo "ROSINSTALL_CI_JOB_TOKEN = $ROSINSTALL_CI_JOB_TOKEN"
+    # Use GitLab CI tokens if required by the user
+    # This allows to clone private repositories using wstool
+    # Requires the private repositories are on the same GitLab server
+    if [[ "${ROSINSTALL_CI_JOB_TOKEN}" == "true" ]]; then
+      echo "Modify rosinstall file to use GitLab CI job token"
+      pass_ci_token ${rosinstall_file}  > /dev/null
+    fi
+    echo "vcs import"
+    cat $rosinstall_file
+    vcs import $location < $rosinstall_file
+    rm $rosinstall_file
+}
+
 function build_workspace {
     local ws=$1; shift
     apt_get_install build-essential
@@ -96,31 +150,7 @@ function build_workspace {
     ls $ws/src
     for file in "$ws/src/*.rosinstall"; do
         if [ -f ${file} ]; then
-            if ! command -v vcstool > /dev/null; then
-                if [[ "$ROS_VERSION" -eq 1 ]]; then
-                    echo "It is: $ROS_VERSION"
-                    if [ "$ROS_DISTRO" = "noetic" ]; then
-                        echo "It is: $ROS_DISTRO"
-                        apt_get_install python3-vcstool > /dev/null
-                    else
-                        apt_get_install python-vcstool > /dev/null
-                    fi
-                fi
-                if [[ "$ROS_VERSION" -eq 2 ]]; then
-                    echo "It is: $ROS_DISTRO, $ROS_VERSION"
-                    apt_get_install python3-vcstool > /dev/null
-                fi
-                if [ "$ROS_VERSION" -ne 2 ] && [ "$ROS_VERSION" -ne 1 ]; then
-                    echo "Cannot get ROS_VERSION"
-                    exit 1
-                fi
-            fi
-            if ! command -v git > /dev/null; then
-                apt_get_install git > /dev/null
-            fi
-            echo "vcs import"
-            vcs import $ws/src/ < $file
-            rm $file
+            install_from_rosinstall $file $ws/src/
         fi
     done;
     for folder in "$ws/src"/*; do
@@ -129,8 +159,7 @@ function build_workspace {
             echo "find folder: ${folder}"
             for file in "${folder}/*.rosinstall" "${folder}/rosinstall"; do
                 if [ -f ${file} ]; then
-                    echo "vcs import ${file}"
-                    vcs import $ws/src/ < $file
+                    install_from_rosinstall $file $ws/src/
                 fi
             done;
         fi
