@@ -142,6 +142,23 @@ function install_from_rosinstall {
     rm $rosinstall_file
 }
 
+function install_dep_python {
+    local ws=$1; shift
+    for f in $(find $ws -type f -name 'requirements.txt');
+    do
+        echo "Find $f"
+        # install pip
+        if ! command -v pip > /dev/null; then
+            if ! command -v python > /dev/null; then
+                apt_get_install python3-pip > /dev/null
+            else
+                apt_get_install python-pip > /dev/null
+            fi
+        fi
+        pip install -r $f
+    done;
+}
+
 function build_workspace {
     local ws=$1; shift
     apt_get_install build-essential
@@ -166,6 +183,8 @@ function build_workspace {
     done;
     resolve_depends "$ws/src" depend build_depend build_export_depend | apt_get_install
     resolve_depends "$ws/src" depend build_export_depend exec_depend run_depend > "$ws/DEPENDS"
+    # install python deps
+    install_dep_python "$ws/src"
     if [ "$ROS_VERSION" -eq 1 ]; then
         "/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws" -DCATKIN_ENABLE_TESTING=0
     fi
