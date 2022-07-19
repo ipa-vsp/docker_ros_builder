@@ -165,21 +165,9 @@ function build_workspace {
     setup_rosdep
     source "/opt/ros/$ROS_DISTRO/setup.bash"
     ls $ws/src
-    for file in "$ws/src/*.rosinstall"; do
-        if [ -f ${file} ]; then
-            install_from_rosinstall $file $ws/src/
-        fi
-    done;
-    for folder in "$ws/src"/*; do
-        echo "find: ${folder}"
-        if [[ -d ${folder} ]]; then
-            echo "find folder: ${folder}"
-            for file in "${folder}/*.rosinstall" "${folder}/rosinstall"; do
-                if [ -f ${file} ]; then
-                    install_from_rosinstall $file $ws/src/
-                fi
-            done;
-        fi
+    for file in $(find "$ws/src" -type f -name '*.rosinstall' -name 'rosinstall' -name '*.repo'); do
+        echo "file"
+        install_from_rosinstall $file $ws/src/
     done;
     resolve_depends "$ws/src" depend build_depend build_export_depend | apt_get_install
     resolve_depends "$ws/src" depend build_export_depend exec_depend run_depend > "$ws/DEPENDS"
@@ -189,7 +177,10 @@ function build_workspace {
         "/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws" -DCATKIN_ENABLE_TESTING=0
     fi
     if [[ "$ROS_VERSION" -eq 2 ]]; then
-        cd $ws && colcon build
+        if ! command -v colcon > /dev/null; then
+            apt_get_install python3-colcon-common-extensions
+        fi
+        cd $ws && colcon build --cmake-args -DBUILD_TESTING=OFF
     fi
 }
 
