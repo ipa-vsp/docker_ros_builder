@@ -168,7 +168,7 @@ function build_workspace {
     setup_rosdep
     source "/opt/ros/$ROS_DISTRO/setup.bash"
     ls $ws/src
-    for file in $(find "$ws/src" -type f -name '*.rosinstall' -name 'rosinstall' -name '*.repo'); do
+    for file in $(find "$ws/src" -type f -name '*.rosinstall' -o -name 'rosinstall' -o -name '*.repo'); do
         echo "file"
         install_from_rosinstall $file $ws/src/
     done;
@@ -219,10 +219,17 @@ function install_workspace {
         echo "It is: $ROS_DISTRO"
         local ws=$1; shift
         source "/opt/ros/$ROS_DISTRO/setup.bash"
+        if ! command -v colcon > /dev/null; then
+            apt_get_install python3-colcon-common-extensions
+        fi
         # didn't work on galactic
-        cd $ws && rm -r install build && colcon build --merge-install --install-base "/opt/ros/$ROS_DISTRO"
+        cd $ws
+        if [ -d "install" ]; then
+            rm -r install build
+        fi
+        colcon build --cmake-args -DBUILD_TESTING=OFF --merge-install --install-base "/opt/ros/$ROS_DISTRO"
     fi
-    if [ "$ROS_VERSION" -ne 2 ] && [ "$ROS_VERSION" -ne 1 ]; then
+    if [[ "$ROS_VERSION" -ne 2 ]] && [[ "$ROS_VERSION" -ne 1 ]]; then
         exit 1
     fi
 }
