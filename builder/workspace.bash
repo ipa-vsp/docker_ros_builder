@@ -173,7 +173,7 @@ function build_workspace {
     resolve_depends "$ws/src" depend build_export_depend exec_depend run_depend > "$ws/DEPENDS"
     # install python deps
     install_dep_python "$ws/src"
-    if [ "$ROS_VERSION" -eq 1 ]; then
+    if [[ "$ROS_VERSION" -eq 1 ]]; then
         "/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws" -DCATKIN_ENABLE_TESTING=0
     fi
     if [[ "$ROS_VERSION" -eq 2 ]]; then
@@ -186,8 +186,9 @@ function build_workspace {
 
 function test_workspace {
     local ws=$1; shift
+    source "/opt/ros/$ROS_DISTRO/setup.bash"
     resolve_depends "$ws/src" depend exec_depend run_depend test_depend | apt_get_install
-    if [ "$ROS_VERSION" -eq 1 ]; then
+    if [[ "$ROS_VERSION" -eq 1 ]]; then
         "/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws" -DCATKIN_ENABLE_TESTING=1
         "/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws" --make-args run_tests -j1
         "/opt/ros/$ROS_DISTRO"/env.sh catkin_test_results --verbose "$ws"
