@@ -29,6 +29,9 @@ function list_packages {
         "/opt/ros/$ROS_DISTRO"/env.sh catkin_topological_order --only-names "$src"
     fi
     if [ "$ROS_VERSION" -eq 2 ]; then
+        if ! command -v colcon > /dev/null; then
+            apt_get_install python3-colcon-common-extensions
+        fi
         local src=$1; shift
         colcon list --base-paths "/opt/ros/$ROS_DISTRO/share" --names-only
         colcon list --base-paths "$src" --names-only
