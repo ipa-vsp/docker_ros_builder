@@ -177,13 +177,13 @@ function build_workspace {
     # install python deps
     install_dep_python "$ws/src"
     if [[ "$ROS_VERSION" -eq 1 ]]; then
-        "/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws" -DCATKIN_ENABLE_TESTING=0
+        "/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws" -DCATKIN_ENABLE_TESTING=0 $CMAKE_ARGS
     fi
     if [[ "$ROS_VERSION" -eq 2 ]]; then
         if ! command -v colcon > /dev/null; then
             apt_get_install python3-colcon-common-extensions
         fi
-        cd $ws && colcon build --cmake-args -DBUILD_TESTING=OFF
+        cd $ws && colcon build --cmake-args -DBUILD_TESTING=OFF $CMAKE_ARGS
     fi
 }
 
