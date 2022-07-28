@@ -176,6 +176,7 @@ function build_workspace {
     resolve_depends "$ws/src" depend build_export_depend exec_depend run_depend > "$ws/DEPENDS"
     # install python deps
     install_dep_python "$ws/src"
+    echo "CMAKE_ARGS = $CMAKE_ARGS"
     if [[ "$ROS_VERSION" -eq 1 ]]; then
         "/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws" -DCATKIN_ENABLE_TESTING=0 $CMAKE_ARGS
     fi
