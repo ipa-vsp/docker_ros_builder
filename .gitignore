@@ -1,0 +1,4 @@
+.vscode
+.ros
+.bash_history
+**/log
