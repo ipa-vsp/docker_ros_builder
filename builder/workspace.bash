@@ -168,7 +168,7 @@ function build_workspace {
     setup_rosdep
     source "/opt/ros/$ROS_DISTRO/setup.bash"
     ls $ws/src
-    for file in $(find "$ws/src" -type f -name '*.rosinstall' -o -name 'rosinstall' -o -name '*.repo'); do
+    for file in $(find "$ws/src" -type f -name '*.rosinstall' -o -name 'rosinstall' -o -name '*.repo' -o -name '*.repos'); do
         echo "file"
         install_from_rosinstall $file $ws/src/
     done;
