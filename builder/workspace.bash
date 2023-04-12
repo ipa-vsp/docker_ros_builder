@@ -145,6 +145,15 @@ function install_from_rosinstall {
     rm "$rosinstall_file"
 }
 
+function install_from_rosinstall_folder {
+    local ws=$1; shift
+    for f in $(find "$ws/src" -type f -name '*.repos' -o -name "*.repo");
+    do
+        echo "Find $f"
+        install_from_rosinstall "$f" "$ws/src"
+    done;
+}
+
 function install_dep_python {
     local ws=$1; shift
     for f in $(find "$ws" -type f -name 'requirements.txt');
