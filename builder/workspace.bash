@@ -16,6 +16,17 @@ function update_list {
         "$ws"/src/extra.sh
     fi
 }
+function run_sh_files() {
+    local ws=$1; shift
+    local sh_files=("$@")
+    setup_rosdep
+    for file in "${sh_files[@]}";
+    do
+       if [ -f "$ws"/src/"$file" ]; then
+        "$ws"/src/"$file"
+        fi
+    done
+}
 function read_depends {
     local src=$1; shift
     for dt in "$@"; do
@@ -176,7 +187,7 @@ function build_workspace {
     apt_get_install build-essential
     setup_rosdep
     source "/opt/ros/$ROS_DISTRO/setup.bash"
-    ls "$ws"/src
+    # ls "$ws"/src
     for file in $(find "$ws/src" -type f -name '*.rosinstall' -o -name 'rosinstall' -o -name '*.repo' -o -name '*.repos'); do
         echo "file"
         install_from_rosinstall "$file" "$ws"/src/
