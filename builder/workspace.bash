@@ -12,8 +12,8 @@ function grep_opt {
 function update_list {
     local ws=$1; shift
     setup_rosdep
-    if [ -f $ws/src/extra.sh ]; then
-        $ws/src/extra.sh
+    if [ -f "$ws"/src/extra.sh ]; then
+        "$ws"/src/extra.sh
     fi
 }
 function read_depends {
@@ -96,11 +96,11 @@ function pass_ci_token {
     if ! command -v gettext > /dev/null; then
         apt_get_install gettext >/dev/null
     fi
-    sed -i 's/https:\/\/git-ce\./https:\/\/gitlab-ci-token:\$\{CI_JOB_TOKEN\}\@git-ce\./g' $rosinstall_file
+    sed -i 's/https:\/\/git-ce\./https:\/\/gitlab-ci-token:\$\{CI_JOB_TOKEN\}\@git-ce\./g' "$rosinstall_file"
     # Replace CI_JOB_TOKEN by its content
-    envsubst < $rosinstall_file > tmp.rosinstall
-    rm $rosinstall_file
-    mv tmp.rosinstall $rosinstall_file
+    envsubst < "$rosinstall_file" > tmp.rosinstall
+    rm "$rosinstall_file"
+    mv tmp.rosinstall "$rosinstall_file"
 }
 
 function install_from_rosinstall {
@@ -137,17 +137,17 @@ function install_from_rosinstall {
     # Requires the private repositories are on the same GitLab server
     if [[ "${ROSINSTALL_CI_JOB_TOKEN}" == "true" ]]; then
       echo "Modify rosinstall file to use GitLab CI job token"
-      pass_ci_token ${rosinstall_file}  > /dev/null
+      pass_ci_token "${rosinstall_file}"  > /dev/null
     fi
     echo "vcs import"
-    cat $rosinstall_file
-    vcs import $location < $rosinstall_file
-    rm $rosinstall_file
+    cat "$rosinstall_file"
+    vcs import "$location" < "$rosinstall_file"
+    rm "$rosinstall_file"
 }
 
 function install_dep_python {
     local ws=$1; shift
-    for f in $(find $ws -type f -name 'requirements.txt');
+    for f in $(find "$ws" -type f -name 'requirements.txt');
     do
         echo "Find $f"
         # install pip
@@ -158,7 +158,7 @@ function install_dep_python {
                 apt_get_install python-pip > /dev/null
             fi
         fi
-        pip install -r $f
+        pip install -r "$f"
     done;
 }
 
@@ -167,10 +167,10 @@ function build_workspace {
     apt_get_install build-essential
     setup_rosdep
     source "/opt/ros/$ROS_DISTRO/setup.bash"
-    ls $ws/src
+    ls "$ws"/src
     for file in $(find "$ws/src" -type f -name '*.rosinstall' -o -name 'rosinstall' -o -name '*.repo' -o -name '*.repos'); do
         echo "file"
-        install_from_rosinstall $file $ws/src/
+        install_from_rosinstall "$file" "$ws"/src/
     done;
     resolve_depends "$ws/src" depend build_depend build_export_depend | apt_get_install
     resolve_depends "$ws/src" depend build_export_depend exec_depend run_depend > "$ws/DEPENDS"
@@ -178,13 +178,13 @@ function build_workspace {
     install_dep_python "$ws/src"
     echo "CMAKE_ARGS = $CMAKE_ARGS"
     if [[ "$ROS_VERSION" -eq 1 ]]; then
-        "/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws" -DCATKIN_ENABLE_TESTING=0 $CMAKE_ARGS
+        "/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws" -DCATKIN_ENABLE_TESTING=0 "$CMAKE_ARGS"
     fi
     if [[ "$ROS_VERSION" -eq 2 ]]; then
         if ! command -v colcon > /dev/null; then
             apt_get_install python3-colcon-common-extensions
         fi
-        cd $ws && colcon build --cmake-args -DBUILD_TESTING=OFF $CMAKE_ARGS
+        cd "$ws" && colcon build --cmake-args -DBUILD_TESTING=OFF "$CMAKE_ARGS"
     fi
 }
 
@@ -197,7 +197,7 @@ function test_workspace {
         "/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws" --make-args run_tests -j1
         "/opt/ros/$ROS_DISTRO"/env.sh catkin_test_results --verbose "$ws"
     else
-        cd $ws && colcon test
+        cd "$ws" && colcon test
         colcon test-result --verbose
     fi
 }
@@ -211,7 +211,7 @@ function install_workspace {
     source "/opt/ros/$ROS_DISTRO/setup.bash"
     echo "ROS_VERSION: $ROS_VERSION"
     echo "ROS_DISTRO: $ROS_DISTRO"
-    if [[ "$ROS_VERSION" -eq 1 ]]; then
+    if [[ ""$RO"S_VERSION" -eq 1 ]]; then
         echo "It is: $ROS_DISTRO"
         local ws=$1; shift
         "/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws" --install --install-space "/opt/ros/$ROS_DISTRO"
@@ -224,7 +224,7 @@ function install_workspace {
             apt_get_install python3-colcon-common-extensions
         fi
         # didn't work on galactic
-        cd $ws
+        cd "$ws"
         if [ -d "install" ]; then
             rm -r install build
         fi
