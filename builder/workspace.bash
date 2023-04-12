@@ -110,16 +110,16 @@ function install_from_rosinstall {
     source "/opt/ros/$ROS_DISTRO/setup.bash"
     if ! command -v vcstool > /dev/null; then
         if [[ "$ROS_VERSION" -eq 1 ]]; then
-            echo "It is: $ROS_VERSION"
+            # echo "It is: $ROS_VERSION"
             if [ "$ROS_DISTRO" = "noetic" ]; then
-                echo "It is: $ROS_DISTRO"
+                # echo "It is: $ROS_DISTRO"
                 apt_get_install python3-vcstool > /dev/null
             else
                 apt_get_install python-vcstool > /dev/null
             fi
         fi
         if [[ "$ROS_VERSION" -eq 2 ]]; then
-            echo "It is: $ROS_DISTRO, $ROS_VERSION"
+            # echo "It is: $ROS_DISTRO, $ROS_VERSION"
             apt_get_install python3-vcstool > /dev/null
         fi
         if [[ "$ROS_VERSION" -ne 2 ]] && [[ "$ROS_VERSION" -ne 1 ]]; then
@@ -131,7 +131,7 @@ function install_from_rosinstall {
     if ! command -v git > /dev/null; then
         apt_get_install git > /dev/null
     fi
-    echo "ROSINSTALL_CI_JOB_TOKEN = $ROSINSTALL_CI_JOB_TOKEN"
+    # echo "ROSINSTALL_CI_JOB_TOKEN = $ROSINSTALL_CI_JOB_TOKEN"
     # Use GitLab CI tokens if required by the user
     # This allows to clone private repositories using wstool
     # Requires the private repositories are on the same GitLab server
@@ -139,8 +139,8 @@ function install_from_rosinstall {
       echo "Modify rosinstall file to use GitLab CI job token"
       pass_ci_token "${rosinstall_file}"  > /dev/null
     fi
-    echo "vcs import"
-    cat "$rosinstall_file"
+    # echo "vcs import"
+    # cat "$rosinstall_file"
     vcs import "$location" < "$rosinstall_file"
     rm "$rosinstall_file"
 }
