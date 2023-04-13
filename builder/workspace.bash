@@ -23,6 +23,7 @@ function run_sh_files() {
     for file in "${sh_files[@]}";
     do
        if [ -f "$ws"/src/"$file" ]; then
+        chmod +x "$ws"/src/"$file"
         "$ws"/src/"$file"
         fi
     done
