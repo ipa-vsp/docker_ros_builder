@@ -193,8 +193,8 @@ function build_workspace {
         echo "file"
         install_from_rosinstall "$file" "$ws"/src/
     done;
-    resolve_depends "$ws/src" depend build_depend build_export_depend | apt_get_install
     resolve_depends "$ws/src" depend build_export_depend exec_depend run_depend > "$ws/DEPENDS"
+    resolve_depends "$ws/src" depend build_depend build_export_depend | apt_get_install
     # install python deps
     install_dep_python "$ws/src"
     echo "CMAKE_ARGS = $CMAKE_ARGS"
