@@ -232,7 +232,7 @@ function install_workspace {
     source "/opt/ros/$ROS_DISTRO/setup.bash"
     echo "ROS_VERSION: $ROS_VERSION"
     echo "ROS_DISTRO: $ROS_DISTRO"
-    if [[ ""$RO"S_VERSION" -eq 1 ]]; then
+    if [[ "$ROS_VERSION" -eq 1 ]]; then
         echo "It is: $ROS_DISTRO"
         local ws=$1; shift
         "/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws" --install --install-space "/opt/ros/$ROS_DISTRO"
@@ -240,20 +240,29 @@ function install_workspace {
     if [[ "$ROS_VERSION" -eq 2 ]]; then
         echo "It is: $ROS_DISTRO"
         local ws=$1; shift
-        source "/opt/ros/$ROS_DISTRO/setup.bash"
-        if ! command -v colcon > /dev/null; then
-            apt_get_install python3-colcon-common-extensions
-        fi
-        # didn't work on galactic
-        cd "$ws"
-        if [ -d "install" ]; then
-            rm -r install build
-        fi
-        colcon build --cmake-args -DBUILD_TESTING=OFF --merge-install --install-base "/opt/ros/$ROS_DISTRO"
+        rm -r "$ws"/src
+        rm -r "$ws"/build
+        make_ros_entrypoint "$ws" > /ros_entrypoint.sh
+        source "/ros_entrypoint.sh"
     fi
     if [[ "$ROS_VERSION" -ne 2 ]] && [[ "$ROS_VERSION" -ne 1 ]]; then
         exit 1
     fi
+}
+
+function make_ros_entrypoint {
+    local ws=$1; shift
+cat <<- _EOF_
+#!/bin/bash
+set -e
+
+# setup ros2 environment
+source "/opt/ros/$ROS_DISTRO/setup.bash" --
+if [ -f "$ws"/install/setup.bash ]; then
+source "$ws/install/setup.bash" --
+fi
+exec "\$@"
+_EOF_
 }
 
 if [ -n "$*" ]; then
