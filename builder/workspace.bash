@@ -240,7 +240,6 @@ function install_workspace {
     if [[ "$ROS_VERSION" -eq 2 ]]; then
         echo "It is: $ROS_DISTRO"
         local ws=$1; shift
-        rm -r "$ws"/src
         rm -r "$ws"/build
         make_ros_entrypoint "$ws" > /ros_entrypoint.sh
         source "/ros_entrypoint.sh"
