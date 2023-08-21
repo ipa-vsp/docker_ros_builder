@@ -190,7 +190,7 @@ function build_workspace {
     source "/opt/ros/$ROS_DISTRO/setup.bash"
     # ls "$ws"/src
     for file in $(find "$ws/src" -type f -name '*.rosinstall' -o -name 'rosinstall' -o -name '*.repo' -o -name '*.repos'); do
-        echo "file"
+        echo "$file"
         install_from_rosinstall "$file" "$ws"/src/
     done;
     resolve_depends "$ws/src" depend build_export_depend exec_depend run_depend > "$ws/DEPENDS"
