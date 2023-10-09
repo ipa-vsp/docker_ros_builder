@@ -208,7 +208,7 @@ function build_workspace {
         fi
         local cmd=()
         if [[ -n "${pkgs[@]}" ]]; then
-            cmd+=(colcon build --packages-select)
+            cmd+=(colcon build --packages-up-to)
             for pkg in "${pkgs[@]}"; do
                 cmd+=( "$pkg" )
             done
@@ -229,6 +229,7 @@ function build_workspace {
 
 function test_workspace {
     local ws=$1; shift
+    local pkgs="$*"
     source "/opt/ros/$ROS_DISTRO/setup.bash"
     resolve_depends "$ws/src" depend exec_depend run_depend test_depend | apt_get_install
     if [[ "$ROS_VERSION" -eq 1 ]]; then
@@ -236,7 +237,20 @@ function test_workspace {
         "/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws" --make-args run_tests -j1
         "/opt/ros/$ROS_DISTRO"/env.sh catkin_test_results --verbose "$ws"
     else
-        cd "$ws" && colcon test
+        if ! command -v colcon > /dev/null; then
+            apt_get_install python3-colcon-common-extensions
+        fi
+        local cmd=()
+        if [[ -n "${pkgs[@]}" ]]; then
+            cmd+=(colcon test --packages-up-to)
+            for pkg in "${pkgs[@]}"; do
+                cmd+=( "$pkg" )
+            done
+        else
+            cmd+=(colcon test)
+        fi
+
+        cd "$ws" && ${cmd[@]}
         colcon test-result --verbose
     fi
 }
