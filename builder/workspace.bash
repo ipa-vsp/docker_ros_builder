@@ -206,14 +206,16 @@ function build_workspace {
         if ! command -v colcon > /dev/null; then
             apt_get_install python3-colcon-common-extensions
         fi
-        local cmd=()
+        local cmd=(colcon build)
         if [[ -n "${pkgs[@]}" ]]; then
-            cmd+=(colcon build --packages-up-to)
+            if [[ -n "${COLCON_OPTION}" ]]; then
+                cmd+=( "${COLCON_OPTION}" )
+            else
+                cmd+=(--packages-up-to)
+            fi
             for pkg in "${pkgs[@]}"; do
                 cmd+=( "$pkg" )
             done
-        else
-            cmd+=(colcon build)
         fi
 
         if [[ -n "${CMAKE_ARGS[@]}" ]]; then
@@ -240,14 +242,16 @@ function test_workspace {
         if ! command -v colcon > /dev/null; then
             apt_get_install python3-colcon-common-extensions
         fi
-        local cmd=()
+        local cmd=(colcon test)
         if [[ -n "${pkgs[@]}" ]]; then
-            cmd+=(colcon test --packages-up-to)
+            if [[ -n "${COLCON_OPTION}" ]]; then
+                cmd+=( "${COLCON_OPTION}" )
+            else
+                cmd+=(--packages-up-to)
+            fi
             for pkg in "${pkgs[@]}"; do
                 cmd+=( "$pkg" )
             done
-        else
-            cmd+=(colcon test)
         fi
 
         cd "$ws" && ${cmd[@]}
