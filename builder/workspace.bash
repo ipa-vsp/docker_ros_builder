@@ -185,6 +185,7 @@ function install_dep_python {
 
 function build_workspace {
     local ws=$1; shift
+    local pkgs="$*"
     apt_get_install build-essential
     setup_rosdep
     source "/opt/ros/$ROS_DISTRO/setup.bash"
@@ -205,7 +206,24 @@ function build_workspace {
         if ! command -v colcon > /dev/null; then
             apt_get_install python3-colcon-common-extensions
         fi
-        cd "$ws" && colcon build --cmake-args -DBUILD_TESTING=OFF "$CMAKE_ARGS"
+        local cmd=()
+        if [[ -n "${pkgs[@]}" ]]; then
+            cmd+=(colcon build --packages-select)
+            for pkg in "${pkgs[@]}"; do
+                cmd+=( "$pkg" )
+            done
+        else
+            cmd+=(colcon build)
+        fi
+
+        if [[ -n "${CMAKE_ARGS[@]}" ]]; then
+            cmd+=( "--cmake-args" )
+            for str in "${CMAKE_ARGS[@]}"; do
+                cmd+=( "$str" )
+            done
+        fi
+
+        cd "$ws" && ${cmd[@]}
     fi
 }
 
