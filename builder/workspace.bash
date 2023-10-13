@@ -190,6 +190,16 @@ function install_dep_python {
     done
 }
 
+# download_repos "workspace name"
+function download_repos {
+    local ws=$1
+    shift
+    for file in $(find "$ws/src" -type f -name '*.rosinstall' -o -name 'rosinstall' -o -name '*.repo' -o -name '*.repos'); do
+        echo "$file"
+        install_from_rosinstall "$file" "$ws"/src/
+    done
+}
+
 # get_dependencies "workspace name" "ROS_DISTRO name" "ubderlayered workspace(s)"
 function get_dependencies {
     # require source workspace before
@@ -215,13 +225,118 @@ function get_dependencies {
         export ROS_VERSION=2
     fi
 
-    for file in $(find "$ws/src" -type f -name '*.rosinstall' -o -name 'rosinstall' -o -name '*.repo' -o -name '*.repos'); do
-        echo "$file"
-        install_from_rosinstall "$file" "$ws"/src/
-    done
+    download_repos "$ws"
 
     resolve_depends "$ws/src" depend build_export_depend exec_depend run_depend >"$ws/DEPENDS"
     resolve_depends "$ws/src" depend build_depend build_export_depend | apt_get_install
+}
+
+# setup_ws --ros_distro "ROS_DISTRO name" --overlayers "ubderlayered workspace(s)"
+function setup_ws {
+    IFS='--' read -ra ARGS <<<"$*"
+    for group in "${ARGS[@]}"; do
+        if [ ! -z "$group" ]; then
+            IFS=' ' read -ra eles <<<"$group"
+            v="${eles[0]}"
+            if [[ -n "${eles[@]:1}" ]]; then
+                declare -a "$v"="( $(printf '%q ' "${eles[@]:1}") )"
+            fi
+        fi
+    done
+    unset IFS
+
+    if [ -v "${ros_distro}" ]; then
+        source "/opt/ros/$ros_distro/setup.bash"
+    else
+        source "/opt/ros/$ROS_DISTRO/setup.bash"
+    fi
+
+    if [[ -n "${overlayers[@]}" ]]; then
+        for overlayer in "${overlayers[@]}"; do
+            if [ -f "$overlayer/install/local_setup.bash" ]; then
+                source "$overlayer/install/local_setup.bash"
+            fi
+        done
+    fi
+}
+
+# only_build_workspace "workspace path" "ROS_DISTRO name" --overlayers "ubderlayered workspace(s)" --pkgs "select pkgs"
+function only_build_workspace {
+    # require source workspace before
+    local ws=$1
+    shift
+    local ROS_DISTRO=$1
+    shift
+
+    IFS='--' read -ra ARGS <<<"$*"
+    for group in "${ARGS[@]}"; do
+        if [ ! -z "$group" ]; then
+            IFS=' ' read -ra eles <<<"$group"
+            v="${eles[0]}"
+            if [[ -n "${eles[@]:1}" ]]; then
+                declare -a "$v"="( $(printf '%q ' "${eles[@]:1}") )"
+            fi
+        fi
+    done
+    unset IFS
+
+    if [[ -n "${overlayers[@]}" ]]; then
+        setup_ws --ros_distro "$ROS_DISTRO" --overlayers "${overlayers[@]}"
+    else
+        setup_ws --ros_distro "$ROS_DISTRO"
+    fi
+
+    local ROS_VERSION=0
+    if [ "$ROS_DISTRO" = "noetic" ]; then
+        export ROS_VERSION=1
+    elif [ "$ROS_DISTRO" = "humble" ]; then
+        export ROS_VERSION=2
+    fi
+
+    if [[ "$ROS_VERSION" -eq 1 ]]; then
+        local cmd=("/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws")
+        if [[ -n "${pkgs[@]}" ]]; then
+            cmd+=(--pkg)
+            for pkg in "${pkgs[@]}"; do
+                cmd+=("$pkg")
+            done
+        fi
+
+        cmd+=(-DCATKIN_ENABLE_TESTING=0)
+
+        if [[ -n "${CMAKE_ARGS[@]}" ]]; then
+            for str in "${CMAKE_ARGS[@]}"; do
+                cmd+=("$str")
+            done
+        fi
+        ${cmd[@]}
+    fi
+
+    if [[ "$ROS_VERSION" -eq 2 ]]; then
+        if ! command -v colcon >/dev/null; then
+            apt_get_install python3-colcon-common-extensions
+        fi
+        local cmd=(colcon build)
+        if [[ -n "${pkgs[@]}" ]]; then
+            if [[ -n "${COLCON_OPTION}" ]]; then
+                cmd+=("${COLCON_OPTION}")
+            else
+                cmd+=(--packages-up-to)
+            fi
+            for pkg in "${pkgs[@]}"; do
+                cmd+=("$pkg")
+            done
+        fi
+
+        if [[ -n "${CMAKE_ARGS[@]}" ]]; then
+            cmd+=("--cmake-args")
+            for str in "${CMAKE_ARGS[@]}"; do
+                cmd+=("$str")
+            done
+        fi
+
+        cd "$ws" && ${cmd[@]}
+    fi
 }
 
 function build_workspace {
@@ -232,17 +347,28 @@ function build_workspace {
     setup_rosdep
     source "/opt/ros/$ROS_DISTRO/setup.bash"
     # ls "$ws"/src
-    for file in $(find "$ws/src" -type f -name '*.rosinstall' -o -name 'rosinstall' -o -name '*.repo' -o -name '*.repos'); do
-        echo "$file"
-        install_from_rosinstall "$file" "$ws"/src/
-    done
+
+    # download repos from .rosinstall or .repo, or .repos
+    download_repos "$ws"
+
     resolve_depends "$ws/src" depend build_export_depend exec_depend run_depend >"$ws/DEPENDS"
     resolve_depends "$ws/src" depend build_depend build_export_depend | apt_get_install
+
     # install python deps
     install_dep_python "$ws/src"
     echo "CMAKE_ARGS = $CMAKE_ARGS"
+
     if [[ "$ROS_VERSION" -eq 1 ]]; then
-        local cmd=("/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws" -DCATKIN_ENABLE_TESTING=0)
+        local cmd=("/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws")
+        if [[ -n "${pkgs[@]}" ]]; then
+            cmd+=(--pkg)
+            for pkg in "${pkgs[@]}"; do
+                cmd+=("$pkg")
+            done
+        fi
+
+        cmd+=(-DCATKIN_ENABLE_TESTING=0)
+
         if [[ -n "${CMAKE_ARGS[@]}" ]]; then
             for str in "${CMAKE_ARGS[@]}"; do
                 cmd+=("$str")
