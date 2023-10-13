@@ -300,10 +300,11 @@ function only_build_workspace {
         local cmd=("/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws")
         if [[ -n "${pkgs[@]}" ]]; then
             echo "pkgs=${pkgs[@]}"
-            cmd+=(--pkg)
+            cmd+=(--only-pkg-with-deps)
             for pkg in "${pkgs[@]}"; do
                 cmd+=("$pkg")
             done
+            cmd+=(--install)
         fi
 
         cmd+=(-DCATKIN_ENABLE_TESTING=0)
