@@ -240,12 +240,11 @@ function setup_ws {
         if [[ -n "${eles[@]:1}" ]]; then
             declare -a "$v"="( $(printf '%q ' "${eles[@]:1}") )"
         fi
-
-        unset IFS
         rest=${BASH_REMATCH[1]}
+        unset IFS
     done
 
-    if [ -v "${ros_distro}" ]; then
+    if [ -v "$ros_distro" ]; then
         source "/opt/ros/$ros_distro/setup.bash"
     else
         source "/opt/ros/$ROS_DISTRO/setup.bash"
@@ -253,8 +252,18 @@ function setup_ws {
 
     if [[ -n "${overlayers[@]}" ]]; then
         for overlayer in "${overlayers[@]}"; do
-            if [ -f "$overlayer/install/local_setup.bash" ]; then
-                source "$overlayer/install/local_setup.bash"
+            if [[ "$ROS_VERSION" -eq 1 ]]; then
+                if [ -f "$overlayer/install_isolated/setup.bash" ]; then
+                    source "$overlayer/install_isolated/setup.bash"
+                elif [ -f "$overlayer/install/local_setup.bash" ]; then
+                    source "$overlayer/install/local_setup.bash"
+                fi
+                echo "ROS_PACKAGE_PATH=${ROS_PACKAGE_PATH}"
+            fi
+            if [[ "$ROS_VERSION" -eq 2 ]]; then
+                if [ -f "$overlayer/install/local_setup.bash" ]; then
+                    source "$overlayer/install/local_setup.bash"
+                fi
             fi
         done
     fi
@@ -307,6 +316,14 @@ function only_build_workspace {
             cmd+=(--install)
         fi
 
+        if [[ -n "${ignore[@]}" ]]; then
+            echo "ignore-pkg=${ignore[@]}"
+            cmd+=(--ignore-pkg)
+            for pkg in "${ignore[@]}"; do
+                cmd+=("$pkg")
+            done
+        fi
+
         cmd+=(-DCATKIN_ENABLE_TESTING=0)
 
         if [[ -n "${CMAKE_ARGS[@]}" ]]; then
@@ -330,6 +347,14 @@ function only_build_workspace {
                 cmd+=(--packages-up-to)
             fi
             for pkg in "${pkgs[@]}"; do
+                cmd+=("$pkg")
+            done
+        fi
+
+        if [[ -n "${ignore[@]}" ]]; then
+            echo "ignore-pkg=${ignore[@]}"
+            cmd+=(--packages-ignore)
+            for pkg in "${ignore[@]}"; do
                 cmd+=("$pkg")
             done
         fi
