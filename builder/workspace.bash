@@ -233,17 +233,17 @@ function get_dependencies {
 
 # setup_ws --ros_distro "ROS_DISTRO name" --overlayers "ubderlayered workspace(s)"
 function setup_ws {
-    IFS='--' read -ra ARGS <<<"$*"
-    for group in "${ARGS[@]}"; do
-        if [ ! -z "$group" ]; then
-            IFS=' ' read -ra eles <<<"$group"
-            v="${eles[0]}"
-            if [[ -n "${eles[@]:1}" ]]; then
-                declare -a "$v"="( $(printf '%q ' "${eles[@]:1}") )"
-            fi
+    local rest="$*"
+    while [[ $rest =~ (.*)"--"(.*) ]]; do
+        IFS=' ' read -ra eles <<<"${BASH_REMATCH[2]}"
+        v="${eles[0]}"
+        if [[ -n "${eles[@]:1}" ]]; then
+            declare -a "$v"="( $(printf '%q ' "${eles[@]:1}") )"
         fi
+
+        unset IFS
+        rest=${BASH_REMATCH[1]}
     done
-    unset IFS
 
     if [ -v "${ros_distro}" ]; then
         source "/opt/ros/$ros_distro/setup.bash"
@@ -268,17 +268,20 @@ function only_build_workspace {
     local ROS_DISTRO=$1
     shift
 
-    IFS='--' read -ra ARGS <<<"$*"
-    for group in "${ARGS[@]}"; do
-        if [ ! -z "$group" ]; then
-            IFS=' ' read -ra eles <<<"$group"
-            v="${eles[0]}"
-            if [[ -n "${eles[@]:1}" ]]; then
-                declare -a "$v"="( $(printf '%q ' "${eles[@]:1}") )"
-            fi
+    apt_get_install build-essential
+
+    local rest="$*"
+    shift
+    while [[ $rest =~ (.*)"--"(.*) ]]; do
+        IFS=' ' read -ra eles <<<"${BASH_REMATCH[2]}"
+        v="${eles[0]}"
+        if [[ -n "${eles[@]:1}" ]]; then
+            declare -a "$v"="( $(printf '%q ' "${eles[@]:1}") )"
         fi
+
+        unset IFS
+        rest=${BASH_REMATCH[1]}
     done
-    unset IFS
 
     if [[ -n "${overlayers[@]}" ]]; then
         setup_ws --ros_distro "$ROS_DISTRO" --overlayers "${overlayers[@]}"
@@ -296,6 +299,7 @@ function only_build_workspace {
     if [[ "$ROS_VERSION" -eq 1 ]]; then
         local cmd=("/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws")
         if [[ -n "${pkgs[@]}" ]]; then
+            echo "pkgs=${pkgs[@]}"
             cmd+=(--pkg)
             for pkg in "${pkgs[@]}"; do
                 cmd+=("$pkg")
@@ -309,6 +313,7 @@ function only_build_workspace {
                 cmd+=("$str")
             done
         fi
+        echo "cmd=${cmd[@]}"
         ${cmd[@]}
     fi
 
