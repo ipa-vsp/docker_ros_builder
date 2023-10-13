@@ -190,6 +190,40 @@ function install_dep_python {
     done
 }
 
+# get_dependencies "workspace name" "ROS_DISTRO name" "ubderlayered workspace(s)"
+function get_dependencies {
+    # require source workspace before
+    local ws=$1
+    shift
+    local ROS_DISTRO=$1
+    shift
+
+    local overlayer_wss="$*"
+    local wss
+    if [[ -n "${overlayer_wss[@]}" ]]; then
+        for ele in "${overlayer_wss[@]}"; do
+            wss+=("$ele")
+        done
+    fi
+
+    setup_rosdep
+
+    local ROS_VERSION=0
+    if [ "$ROS_DISTRO" = "noetic" ]; then
+        export ROS_VERSION=1
+    elif [ "$ROS_DISTRO" = "humble" ]; then
+        export ROS_VERSION=2
+    fi
+
+    for file in $(find "$ws/src" -type f -name '*.rosinstall' -o -name 'rosinstall' -o -name '*.repo' -o -name '*.repos'); do
+        echo "$file"
+        install_from_rosinstall "$file" "$ws"/src/
+    done
+
+    resolve_depends "$ws/src" depend build_export_depend exec_depend run_depend >"$ws/DEPENDS"
+    resolve_depends "$ws/src" depend build_depend build_export_depend | apt_get_install
+}
+
 function build_workspace {
     local ws=$1
     shift
