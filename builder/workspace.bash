@@ -253,10 +253,10 @@ function setup_ws {
     if [[ -n "${overlayers[@]}" ]]; then
         for overlayer in "${overlayers[@]}"; do
             if [[ "$ROS_VERSION" -eq 1 ]]; then
-                if [ -f "$overlayer/install_isolated/setup.bash" ]; then
-                    source "$overlayer/install_isolated/setup.bash"
-                elif [ -f "$overlayer/install/local_setup.bash" ]; then
-                    source "$overlayer/install/local_setup.bash"
+                if [ -f "$overlayer/devel_isolated/setup.bash" ]; then
+                    source "$overlayer/devel_isolated/setup.bash"
+                elif [ -f "$overlayer/devel/setup.bash" ]; then
+                    source "$overlayer/devel/setup.bash"
                 fi
                 echo "ROS_PACKAGE_PATH=${ROS_PACKAGE_PATH}"
             fi
@@ -276,11 +276,10 @@ function only_build_workspace {
     shift
     local ROS_DISTRO=$1
     shift
-
     apt_get_install build-essential
 
     local rest="$*"
-    shift
+
     while [[ $rest =~ (.*)"--"(.*) ]]; do
         IFS=' ' read -ra eles <<<"${BASH_REMATCH[2]}"
         v="${eles[0]}"
@@ -298,22 +297,28 @@ function only_build_workspace {
         setup_ws --ros_distro "$ROS_DISTRO"
     fi
 
-    local ROS_VERSION=0
-    if [ "$ROS_DISTRO" = "noetic" ]; then
-        export ROS_VERSION=1
-    elif [ "$ROS_DISTRO" = "humble" ]; then
-        export ROS_VERSION=2
+    # local ROS_VERSION=0
+    echo "ROS_VERSION=$ROS_VERSION"
+    if [ -v "$ROS_VERSION" ]; then
+        echo "check ROS_VERSION=$ROS_VERSION"
+        if [ "$ROS_DISTRO" = "noetic" ]; then
+            export ROS_VERSION=1
+        elif [ "$ROS_DISTRO" = "humble" ]; then
+            export ROS_VERSION=2
+        fi
+    else
+        echo "alreasy ROS_VERSION=$ROS_VERSION"
     fi
 
     if [[ "$ROS_VERSION" -eq 1 ]]; then
         local cmd=("/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws")
+        echo "cmd=${cmd[@]}"
         if [[ -n "${pkgs[@]}" ]]; then
             echo "pkgs=${pkgs[@]}"
-            cmd+=(--only-pkg-with-deps)
+            cmd+=(--from-pkg)
             for pkg in "${pkgs[@]}"; do
                 cmd+=("$pkg")
             done
-            cmd+=(--install)
         fi
 
         if [[ -n "${ignore[@]}" ]]; then
