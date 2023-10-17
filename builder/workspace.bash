@@ -488,8 +488,9 @@ function build_workspace {
             done
         fi
 
+        cmd+=("--cmake-args")
+        cmd+=("-DBUILD_TESTING=OFF")
         if [[ -n "${CMAKE_ARGS[@]}" ]]; then
-            cmd+=("--cmake-args")
             for str in "${CMAKE_ARGS[@]}"; do
                 cmd+=("$str")
             done
