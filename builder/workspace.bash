@@ -29,6 +29,7 @@ function run_sh_files() {
         fi
     done
 }
+
 function read_depends {
     local src=$1
     shift
@@ -36,23 +37,59 @@ function read_depends {
         grep_opt -rhoP "(?<=<$dt>)[\w-]+(?=</$dt>)" "$src"
     done
 }
+
+# list_packages /ws/src --overlayers (underlayed workspaces)
 function list_packages {
+    local src=$1
+    shift
+
+    local rest="$*"
+    while [[ $rest =~ (.*)"--"(.*) ]]; do
+        IFS=' ' read -ra eles <<<"${BASH_REMATCH[2]}"
+        v="${eles[0]}"
+        if [[ -n "${eles[@]:1}" ]]; then
+            declare -a "$v"="( $(printf '%q ' "${eles[@]:1}") )"
+        fi
+        rest=${BASH_REMATCH[1]}
+        unset IFS
+    done
+
+    local cmd=("/opt/ros/$ROS_DISTRO/share")
+
     if [ "$ROS_VERSION" -eq 1 ]; then
-        local src=$1
-        shift
         "/opt/ros/$ROS_DISTRO"/env.sh catkin_topological_order --only-names "/opt/ros/$ROS_DISTRO/share"
         "/opt/ros/$ROS_DISTRO"/env.sh catkin_topological_order --only-names "$src"
+        if [[ -n "${overlayers[@]}" ]]; then
+            for ws in "${overlayers[@]}"; do
+                if [ -d "$ws" ]; then
+                    "/opt/ros/$ROS_DISTRO"/env.sh catkin_topological_order --only-names "$ws"
+                fi
+            done
+        fi
     fi
+
+    if [[ -n "${overlayers[@]}" ]]; then
+        if [ "$ROS_VERSION" -eq 2 ]; then
+            for ws in "${overlayers[@]}"; do
+                # cmd+=("$ws/install/*")
+                if [ -d "$ws/install" ]; then
+                    cmd+=("$ws/install/*")
+                fi
+            done
+        fi
+    fi
+
+    cmd+=("$src")
+
     if [ "$ROS_VERSION" -eq 2 ]; then
         if ! command -v colcon >/dev/null; then
             apt_get_install python3-colcon-common-extensions
         fi
-        local src=$1
-        shift
-        colcon list --base-paths "/opt/ros/$ROS_DISTRO/share" --names-only
-        colcon list --base-paths "$src" --names-only
+        echo "check path: ${cmd[@]}"
+        colcon list --base-paths "${cmd[@]}" --names-only
     fi
 }
+
 function setup_rosdep {
     source "/opt/ros/$ROS_DISTRO/setup.bash"
     if [ "$ROS_VERSION" -eq 1 ]; then
@@ -79,16 +116,30 @@ function setup_rosdep {
     fi
     rosdep update
 }
+
+# resolve_depends /ws/src --deptypes --overlayers
 function resolve_depends {
+    local src=$1
+    shift
+
+    local rest="$*"
+    while [[ $rest =~ (.*)"--"(.*) ]]; do
+        IFS=' ' read -ra eles <<<"${BASH_REMATCH[2]}"
+        v="${eles[0]}"
+        if [[ -n "${eles[@]:1}" ]]; then
+            declare -a "$v"="( $(printf '%q ' "${eles[@]:1}") )"
+        fi
+        rest=${BASH_REMATCH[1]}
+        unset IFS
+    done
+
     if [[ "$ROS_VERSION" -eq 1 ]]; then
-        local src=$1
-        shift
-        comm -23 <(read_depends "$src" "$@" | sort -u) <(list_packages "$src" | sort -u) | xargs -r "/opt/ros/$ROS_DISTRO"/env.sh rosdep resolve | grep_opt -v '^#' | sort -u
+        # get required deps but remove deps already exist in /opt/ros/*/share, or current source folder or underlayed workspaces
+        comm -23 <(read_depends "$src" "${deptypes[@]}" | sort -u) <(list_packages "$src" --overlayers "${overlayers[@]}" | sort -u) | xargs -r "/opt/ros/$ROS_DISTRO"/env.sh rosdep resolve | grep_opt -v '^#' | sort -u
     fi
+
     if [[ "$ROS_VERSION" -eq 2 ]]; then
-        local src=$1
-        shift
-        comm -23 <(read_depends "$src" "$@" | sort -u) <(list_packages "$src" | sort -u) | xargs -r rosdep resolve | grep_opt -v '^#' | sort -u
+        comm -23 <(read_depends "$src" "${deptypes[@]}" | sort -u) <(list_packages "$src" --overlayers "${overlayers[@]}" | sort -u) | xargs -r rosdep resolve | grep_opt -v '^#' | sort -u
     fi
     if [ "$ROS_VERSION" -ne 2 ] && [ "$ROS_VERSION" -ne 1 ]; then
         echo "Cannot get ROS_VERSION"
@@ -227,8 +278,8 @@ function get_dependencies {
 
     download_repos "$ws"
 
-    resolve_depends "$ws/src" depend build_export_depend exec_depend run_depend >"$ws/DEPENDS"
-    resolve_depends "$ws/src" depend build_depend build_export_depend | apt_get_install
+    resolve_depends "$ws/src" --deptypes depend build_export_depend exec_depend run_depend >"$ws/DEPENDS"
+    resolve_depends "$ws/src" --deptypes depend build_depend build_export_depend | apt_get_install
 }
 
 # setup_ws --ros_distro "ROS_DISTRO name" --overlayers "ubderlayered workspace(s)"
@@ -336,7 +387,7 @@ function only_build_workspace {
                 cmd+=("$str")
             done
         fi
-        echo "cmd=${cmd[@]}"
+        echo "Build command: ${cmd[@]}"
         ${cmd[@]}
     fi
 
@@ -364,13 +415,15 @@ function only_build_workspace {
             done
         fi
 
+        cmd+=("--cmake-args")
+        cmd+=("-DBUILD_TESTING=OFF")
         if [[ -n "${CMAKE_ARGS[@]}" ]]; then
-            cmd+=("--cmake-args")
             for str in "${CMAKE_ARGS[@]}"; do
                 cmd+=("$str")
             done
         fi
 
+        echo "Build command: ${cmd[@]}"
         cd "$ws" && ${cmd[@]}
     fi
 }
@@ -387,8 +440,8 @@ function build_workspace {
     # download repos from .rosinstall or .repo, or .repos
     download_repos "$ws"
 
-    resolve_depends "$ws/src" depend build_export_depend exec_depend run_depend >"$ws/DEPENDS"
-    resolve_depends "$ws/src" depend build_depend build_export_depend | apt_get_install
+    resolve_depends "$ws/src" --deptypes depend build_export_depend exec_depend run_depend >"$ws/DEPENDS"
+    resolve_depends "$ws/src" --deptypes depend build_depend build_export_depend | apt_get_install
 
     # install python deps
     install_dep_python "$ws/src"
@@ -410,6 +463,8 @@ function build_workspace {
                 cmd+=("$str")
             done
         fi
+
+        echo "Build command: ${cmd[@]}"
         ${cmd[@]}
     fi
 
@@ -436,6 +491,7 @@ function build_workspace {
             done
         fi
 
+        echo "Build command: ${cmd[@]}"
         cd "$ws" && ${cmd[@]}
     fi
 }
@@ -445,7 +501,7 @@ function test_workspace {
     shift
     local pkgs="$*"
     source "/opt/ros/$ROS_DISTRO/setup.bash"
-    resolve_depends "$ws/src" depend exec_depend run_depend test_depend | apt_get_install
+    resolve_depends "$ws/src" --deptypes depend exec_depend run_depend test_depend | apt_get_install
     if [[ "$ROS_VERSION" -eq 1 ]]; then
         "/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws" -DCATKIN_ENABLE_TESTING=1
         "/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws" --make-args run_tests -j1
@@ -479,8 +535,7 @@ function install_depends {
 
 function install_workspace {
     source "/opt/ros/$ROS_DISTRO/setup.bash"
-    echo "ROS_VERSION: $ROS_VERSION"
-    echo "ROS_DISTRO: $ROS_DISTRO"
+
     if [[ "$ROS_VERSION" -eq 1 ]]; then
         echo "It is: $ROS_DISTRO"
         local ws=$1
