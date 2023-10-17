@@ -38,7 +38,7 @@ function read_depends {
     done
 }
 
-# list_packages /ws/src --overlayers (underlayed workspaces)
+# list_packages /ws/src --underlay (underlayed workspaces)
 function list_packages {
     local src=$1
     shift
@@ -59,8 +59,8 @@ function list_packages {
     if [ "$ROS_VERSION" -eq 1 ]; then
         "/opt/ros/$ROS_DISTRO"/env.sh catkin_topological_order --only-names "/opt/ros/$ROS_DISTRO/share"
         "/opt/ros/$ROS_DISTRO"/env.sh catkin_topological_order --only-names "$src"
-        if [[ -n "${overlayers[@]}" ]]; then
-            for ws in "${overlayers[@]}"; do
+        if [[ -n "${underlay[@]}" ]]; then
+            for ws in "${underlay[@]}"; do
                 if [ -d "$ws" ]; then
                     "/opt/ros/$ROS_DISTRO"/env.sh catkin_topological_order --only-names "$ws"
                 fi
@@ -68,9 +68,9 @@ function list_packages {
         fi
     fi
 
-    if [[ -n "${overlayers[@]}" ]]; then
+    if [[ -n "${underlay[@]}" ]]; then
         if [ "$ROS_VERSION" -eq 2 ]; then
-            for ws in "${overlayers[@]}"; do
+            for ws in "${underlay[@]}"; do
                 # cmd+=("$ws/install/*")
                 if [ -d "$ws/install" ]; then
                     cmd+=("$ws/install/*")
@@ -117,7 +117,7 @@ function setup_rosdep {
     rosdep update
 }
 
-# resolve_depends /ws/src --deptypes --overlayers
+# resolve_depends /ws/src --deptypes --underlay
 function resolve_depends {
     local src=$1
     shift
@@ -135,11 +135,11 @@ function resolve_depends {
 
     if [[ "$ROS_VERSION" -eq 1 ]]; then
         # get required deps but remove deps already exist in /opt/ros/*/share, or current source folder or underlayed workspaces
-        comm -23 <(read_depends "$src" "${deptypes[@]}" | sort -u) <(list_packages "$src" --overlayers "${overlayers[@]}" | sort -u) | xargs -r "/opt/ros/$ROS_DISTRO"/env.sh rosdep resolve | grep_opt -v '^#' | sort -u
+        comm -23 <(read_depends "$src" "${deptypes[@]}" | sort -u) <(list_packages "$src" --underlay "${underlay[@]}" | sort -u) | xargs -r "/opt/ros/$ROS_DISTRO"/env.sh rosdep resolve | grep_opt -v '^#' | sort -u
     fi
 
     if [[ "$ROS_VERSION" -eq 2 ]]; then
-        comm -23 <(read_depends "$src" "${deptypes[@]}" | sort -u) <(list_packages "$src" --overlayers "${overlayers[@]}" | sort -u) | xargs -r rosdep resolve | grep_opt -v '^#' | sort -u || true
+        comm -23 <(read_depends "$src" "${deptypes[@]}" | sort -u) <(list_packages "$src" --underlay "${underlay[@]}" | sort -u) | xargs -r rosdep resolve | grep_opt -v '^#' | sort -u || true
     fi
     if [ "$ROS_VERSION" -ne 2 ] && [ "$ROS_VERSION" -ne 1 ]; then
         echo "Cannot get ROS_VERSION"
@@ -269,14 +269,14 @@ function get_dependencies {
         export ROS_VERSION=2
     fi
 
-    local overlayer_wss="$*"
+    local underlay_wss="$*"
     local wss
-    if [[ -n "${overlayer_wss[@]}" ]]; then
-        for ele in "${overlayer_wss[@]}"; do
+    if [[ -n "${underlay_wss[@]}" ]]; then
+        for ele in "${underlay_wss[@]}"; do
             wss+=("$ele")
         done
-        resolve_depends "$ws/src" --deptypes depend build_export_depend exec_depend run_depend --overlayers "${overlayer_wss[@]}" >"$ws/DEPENDS"
-        resolve_depends "$ws/src" --deptypes depend build_depend --overlayers "${overlayer_wss[@]}" | apt_get_install
+        resolve_depends "$ws/src" --deptypes depend build_export_depend exec_depend run_depend --underlay "${underlay_wss[@]}" >"$ws/DEPENDS"
+        resolve_depends "$ws/src" --deptypes depend build_depend --underlay "${underlay_wss[@]}" | apt_get_install
 
     else
         resolve_depends "$ws/src" --deptypes depend build_export_depend exec_depend run_depend >"$ws/DEPENDS"
@@ -286,7 +286,7 @@ function get_dependencies {
 
 }
 
-# setup_ws --ros_distro "ROS_DISTRO name" --overlayers "ubderlayered workspace(s)"
+# setup_ws --ros_distro "ROS_DISTRO name" --underlay "ubderlayered workspace(s)"
 function setup_ws {
     local rest="$*"
     while [[ $rest =~ (.*)"--"(.*) ]]; do
@@ -305,26 +305,26 @@ function setup_ws {
         source "/opt/ros/$ROS_DISTRO/setup.bash"
     fi
 
-    if [[ -n "${overlayers[@]}" ]]; then
-        for overlayer in "${overlayers[@]}"; do
+    if [[ -n "${underlay[@]}" ]]; then
+        for underlay_ws in "${underlay[@]}"; do
             if [[ "$ROS_VERSION" -eq 1 ]]; then
-                if [ -f "$overlayer/devel_isolated/setup.bash" ]; then
-                    source "$overlayer/devel_isolated/setup.bash"
-                elif [ -f "$overlayer/devel/setup.bash" ]; then
-                    source "$overlayer/devel/setup.bash"
+                if [ -f "$underlay_ws/devel_isolated/setup.bash" ]; then
+                    source "$underlay_ws/devel_isolated/setup.bash"
+                elif [ -f "$underlay_ws/devel/setup.bash" ]; then
+                    source "$underlay_ws/devel/setup.bash"
                 fi
                 echo "ROS_PACKAGE_PATH=${ROS_PACKAGE_PATH}"
             fi
             if [[ "$ROS_VERSION" -eq 2 ]]; then
-                if [ -f "$overlayer/install/local_setup.bash" ]; then
-                    source "$overlayer/install/local_setup.bash"
+                if [ -f "$underlay_ws/install/local_setup.bash" ]; then
+                    source "$underlay_ws/install/local_setup.bash"
                 fi
             fi
         done
     fi
 }
 
-# only_build_workspace "workspace path" "ROS_DISTRO name" --overlayers "ubderlayered workspace(s)" --pkgs "select pkgs"
+# only_build_workspace "workspace path" "ROS_DISTRO name" --underlay "ubderlayered workspace(s)" --pkgs "select pkgs"
 function only_build_workspace {
     # require source workspace before
     local ws=$1
@@ -346,8 +346,8 @@ function only_build_workspace {
         rest=${BASH_REMATCH[1]}
     done
 
-    if [[ -n "${overlayers[@]}" ]]; then
-        setup_ws --ros_distro "$ROS_DISTRO" --overlayers "${overlayers[@]}"
+    if [[ -n "${underlay[@]}" ]]; then
+        setup_ws --ros_distro "$ROS_DISTRO" --underlay "${underlay[@]}"
     else
         setup_ws --ros_distro "$ROS_DISTRO"
     fi
@@ -501,7 +501,7 @@ function build_workspace {
     fi
 }
 
-# test_workspace ws --pkgs --overlayers
+# test_workspace ws --pkgs --underlay
 function test_workspace {
     local ws=$1
     shift
@@ -531,10 +531,10 @@ function test_workspace {
         echo "alreasy ROS_VERSION=$ROS_VERSION"
     fi
 
-    if [[ -n "${overlayers[@]}" ]]; then
-        setup_ws --ros_distro "$ROS_DISTRO" --overlayers "${overlayers[@]}"
-        resolve_depends "$ws/src" --deptypes depend exec_depend run_depend test_depend --overlayers "${overlayers[@]}" | apt_get_install
-        echo "setup_ws --ros_distro ""$ROS_DISTRO"" --overlayers "${overlayers[@]}""
+    if [[ -n "${underlay[@]}" ]]; then
+        setup_ws --ros_distro "$ROS_DISTRO" --underlay "${underlay[@]}"
+        resolve_depends "$ws/src" --deptypes depend exec_depend run_depend test_depend --underlay "${underlay[@]}" | apt_get_install
+        echo "setup_ws --ros_distro ""$ROS_DISTRO"" --underlay "${underlay[@]}""
     else
         setup_ws --ros_distro "$ROS_DISTRO"
         resolve_depends "$ws/src" --deptypes depend exec_depend run_depend test_depend | apt_get_install
