@@ -139,7 +139,7 @@ function resolve_depends {
     fi
 
     if [[ "$ROS_VERSION" -eq 2 ]]; then
-        comm -23 <(read_depends "$src" "${deptypes[@]}" | sort -u) <(list_packages "$src" --overlayers "${overlayers[@]}" | sort -u) | xargs -r rosdep resolve | grep_opt -v '^#' | sort -u
+        comm -23 <(read_depends "$src" "${deptypes[@]}" | sort -u) <(list_packages "$src" --overlayers "${overlayers[@]}" | sort -u) | xargs -r rosdep resolve | grep_opt -v '^#' | sort -u || true
     fi
     if [ "$ROS_VERSION" -ne 2 ] && [ "$ROS_VERSION" -ne 1 ]; then
         echo "Cannot get ROS_VERSION"
@@ -259,15 +259,8 @@ function get_dependencies {
     local ROS_DISTRO=$1
     shift
 
-    local overlayer_wss="$*"
-    local wss
-    if [[ -n "${overlayer_wss[@]}" ]]; then
-        for ele in "${overlayer_wss[@]}"; do
-            wss+=("$ele")
-        done
-    fi
-
     setup_rosdep
+    download_repos "$ws"
 
     local ROS_VERSION=0
     if [ "$ROS_DISTRO" = "noetic" ]; then
@@ -276,10 +269,21 @@ function get_dependencies {
         export ROS_VERSION=2
     fi
 
-    download_repos "$ws"
+    local overlayer_wss="$*"
+    local wss
+    if [[ -n "${overlayer_wss[@]}" ]]; then
+        for ele in "${overlayer_wss[@]}"; do
+            wss+=("$ele")
+        done
+        resolve_depends "$ws/src" --deptypes depend build_export_depend exec_depend run_depend --overlayers "${overlayer_wss[@]}" >"$ws/DEPENDS"
+        resolve_depends "$ws/src" --deptypes depend build_depend --overlayers "${overlayer_wss[@]}" | apt_get_install
 
-    resolve_depends "$ws/src" --deptypes depend build_export_depend exec_depend run_depend >"$ws/DEPENDS"
-    resolve_depends "$ws/src" --deptypes depend build_depend build_export_depend | apt_get_install
+    else
+        resolve_depends "$ws/src" --deptypes depend build_export_depend exec_depend run_depend >"$ws/DEPENDS"
+        resolve_depends "$ws/src" --deptypes depend build_depend build_export_depend | apt_get_install
+
+    fi
+
 }
 
 # setup_ws --ros_distro "ROS_DISTRO name" --overlayers "ubderlayered workspace(s)"
