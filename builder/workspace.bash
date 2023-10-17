@@ -501,12 +501,46 @@ function build_workspace {
     fi
 }
 
+# test_workspace ws --pkgs --overlayers
 function test_workspace {
     local ws=$1
     shift
-    local pkgs="$*"
-    source "/opt/ros/$ROS_DISTRO/setup.bash"
-    resolve_depends "$ws/src" --deptypes depend exec_depend run_depend test_depend | apt_get_install
+    local rest="$*"
+
+    while [[ $rest =~ (.*)"--"(.*) ]]; do
+        IFS=' ' read -ra eles <<<"${BASH_REMATCH[2]}"
+        v="${eles[0]}"
+        if [[ -n "${eles[@]:1}" ]]; then
+            declare -a "$v"="( $(printf '%q ' "${eles[@]:1}") )"
+        fi
+
+        unset IFS
+        rest=${BASH_REMATCH[1]}
+    done
+
+    echo "ROS_VERSION=$ROS_VERSION"
+    echo "ROS_DISTRO=$ROS_DISTRO"
+    if [ -v "$ROS_VERSION" ]; then
+        echo "check ROS_VERSION=$ROS_VERSION"
+        if [ "$ROS_DISTRO" = "noetic" ]; then
+            export ROS_VERSION=1
+        elif [ "$ROS_DISTRO" = "humble" ]; then
+            export ROS_VERSION=2
+        fi
+    else
+        echo "alreasy ROS_VERSION=$ROS_VERSION"
+    fi
+
+    if [[ -n "${overlayers[@]}" ]]; then
+        setup_ws --ros_distro "$ROS_DISTRO" --overlayers "${overlayers[@]}"
+        resolve_depends "$ws/src" --deptypes depend exec_depend run_depend test_depend --overlayers "${overlayers[@]}" | apt_get_install
+        echo "setup_ws --ros_distro ""$ROS_DISTRO"" --overlayers "${overlayers[@]}""
+    else
+        setup_ws --ros_distro "$ROS_DISTRO"
+        resolve_depends "$ws/src" --deptypes depend exec_depend run_depend test_depend | apt_get_install
+        echo "setup_ws --ros_distro ""$ROS_DISTRO"""
+    fi
+
     if [[ "$ROS_VERSION" -eq 1 ]]; then
         "/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws" -DCATKIN_ENABLE_TESTING=1
         "/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws" --make-args run_tests -j1
@@ -527,6 +561,7 @@ function test_workspace {
             done
         fi
 
+        echo "test command: ${cmd[@]}"
         cd "$ws" && ${cmd[@]}
         colcon test-result --verbose
     fi
