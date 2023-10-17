@@ -367,32 +367,31 @@ function only_build_workspace {
 
     if [[ "$ROS_VERSION" -eq 1 ]]; then
         local cmd=("/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws")
-        echo "cmd=${cmd[@]}"
-        if [[ -n "${pkgs[@]}" ]]; then
-            echo "pkgs=${pkgs[@]}"
-            cmd+=(--from-pkg)
-            for pkg in "${pkgs[@]}"; do
-                cmd+=("$pkg")
-            done
-        fi
 
         if [[ -n "${ignore[@]}" ]]; then
-            echo "ignore-pkg=${ignore[@]}"
             cmd+=(--ignore-pkg)
             for pkg in "${ignore[@]}"; do
                 cmd+=("$pkg")
             done
         fi
 
-        cmd+=(-DCATKIN_ENABLE_TESTING=0)
+        if [[ -n "${pkgs[@]}" ]]; then
+            cmd+=(--from-pkg)
+            for pkg in "${pkgs[@]}"; do
+                local new_cmd=()
+                new_cmd=${cmd[@]}
+                new_cmd+=("$pkg")
+                new_cmd+=(-DCATKIN_ENABLE_TESTING=0)
 
-        if [[ -n "${CMAKE_ARGS[@]}" ]]; then
-            for str in "${CMAKE_ARGS[@]}"; do
-                cmd+=("$str")
+                if [[ -n "${CMAKE_ARGS[@]}" ]]; then
+                    for str in "${CMAKE_ARGS[@]}"; do
+                        new_cmd+=("$str")
+                    done
+                fi
+                echo "Build command: ${new_cmd[@]}"
+                ${new_cmd[@]}
             done
         fi
-        echo "Build command: ${cmd[@]}"
-        ${cmd[@]}
     fi
 
     if [[ "$ROS_VERSION" -eq 2 ]]; then
@@ -453,23 +452,31 @@ function build_workspace {
 
     if [[ "$ROS_VERSION" -eq 1 ]]; then
         local cmd=("/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws")
-        if [[ -n "${pkgs[@]}" ]]; then
-            cmd+=(--pkg)
-            for pkg in "${pkgs[@]}"; do
+
+        if [[ -n "${ignore[@]}" ]]; then
+            cmd+=(--ignore-pkg)
+            for pkg in "${ignore[@]}"; do
                 cmd+=("$pkg")
             done
         fi
 
-        cmd+=(-DCATKIN_ENABLE_TESTING=0)
+        if [[ -n "${pkgs[@]}" ]]; then
+            cmd+=(--from-pkg)
+            for pkg in "${pkgs[@]}"; do
+                local new_cmd=()
+                new_cmd=${cmd[@]}
+                new_cmd+=("$pkg")
+                new_cmd+=(-DCATKIN_ENABLE_TESTING=0)
 
-        if [[ -n "${CMAKE_ARGS[@]}" ]]; then
-            for str in "${CMAKE_ARGS[@]}"; do
-                cmd+=("$str")
+                if [[ -n "${CMAKE_ARGS[@]}" ]]; then
+                    for str in "${CMAKE_ARGS[@]}"; do
+                        new_cmd+=("$str")
+                    done
+                fi
+                echo "Build command: ${new_cmd[@]}"
+                ${new_cmd[@]}
             done
         fi
-
-        echo "Build command: ${cmd[@]}"
-        ${cmd[@]}
     fi
 
     if [[ "$ROS_VERSION" -eq 2 ]]; then
