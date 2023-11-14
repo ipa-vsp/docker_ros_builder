@@ -262,12 +262,7 @@ function get_dependencies {
     setup_rosdep
     download_repos "$ws"
 
-    local ROS_VERSION=0
-    if [ "$ROS_DISTRO" = "noetic" ]; then
-        export ROS_VERSION=1
-    elif [ "$ROS_DISTRO" = "humble" ]; then
-        export ROS_VERSION=2
-    fi
+    get_ros_version "$ROS_DISTRO"
 
     local underlay_wss="$*"
     local wss
@@ -324,6 +319,20 @@ function setup_ws {
     fi
 }
 
+function get_ros_version {
+    local distro=$1
+    if [ -v "$ROS_VERSION" ]; then
+        echo "check ROS_VERSION=$ROS_VERSION"
+        if [ "$distro" = "noetic" ]; then
+            export ROS_VERSION=1
+        elif [ "$distro" = "humble" ] || [ "$distro" = "rolling" ] || [ "$distro" = "iron" ]; then
+            export ROS_VERSION=2
+        fi
+    else
+        echo "alreasy ROS_VERSION=$ROS_VERSION"
+    fi
+}
+
 # only_build_workspace "workspace path" "ROS_DISTRO name" --underlay "ubderlayered workspace(s)" --pkgs "select pkgs"
 function only_build_workspace {
     # require source workspace before
@@ -354,16 +363,7 @@ function only_build_workspace {
 
     # local ROS_VERSION=0
     echo "ROS_VERSION=$ROS_VERSION"
-    if [ -v "$ROS_VERSION" ]; then
-        echo "check ROS_VERSION=$ROS_VERSION"
-        if [ "$ROS_DISTRO" = "noetic" ]; then
-            export ROS_VERSION=1
-        elif [ "$ROS_DISTRO" = "humble" ]; then
-            export ROS_VERSION=2
-        fi
-    else
-        echo "alreasy ROS_VERSION=$ROS_VERSION"
-    fi
+    get_ros_version "$ROS_DISTRO"
 
     if [[ "$ROS_VERSION" -eq 1 ]]; then
         local cmd=("/opt/ros/$ROS_DISTRO"/env.sh catkin_make_isolated -C "$ws")
@@ -527,16 +527,7 @@ function test_workspace {
 
     echo "ROS_VERSION=$ROS_VERSION"
     echo "ROS_DISTRO=$ROS_DISTRO"
-    if [ -v "$ROS_VERSION" ]; then
-        echo "check ROS_VERSION=$ROS_VERSION"
-        if [ "$ROS_DISTRO" = "noetic" ]; then
-            export ROS_VERSION=1
-        elif [ "$ROS_DISTRO" = "humble" ]; then
-            export ROS_VERSION=2
-        fi
-    else
-        echo "alreasy ROS_VERSION=$ROS_VERSION"
-    fi
+    get_ros_version "$ROS_DISTRO"
 
     if [[ -n "${underlay[@]}" ]]; then
         setup_ws --ros_distro "$ROS_DISTRO" --underlay "${underlay[@]}"
