@@ -325,7 +325,7 @@ function get_ros_version {
         echo "check ROS_VERSION=$ROS_VERSION"
         if [ "$distro" = "noetic" ]; then
             export ROS_VERSION=1
-        elif [ "$distro" = "humble" ] || [ "$distro" = "rolling" ] || [ "$distro" = "iron" ]; then
+        elif [ "$distro" = "humble" ] || [ "$distro" = "rolling" ] || [ "$distro" = "iron" ] || [ "$distro" = "jazzy" ]; then
             export ROS_VERSION=2
         fi
     else
