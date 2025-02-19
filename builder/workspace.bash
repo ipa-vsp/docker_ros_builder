@@ -524,10 +524,9 @@ function test_workspace {
         unset IFS
         rest=${BASH_REMATCH[1]}
     done
-
+    get_ros_version "$ROS_DISTRO"
     echo "ROS_VERSION=$ROS_VERSION"
     echo "ROS_DISTRO=$ROS_DISTRO"
-    get_ros_version "$ROS_DISTRO"
 
     if [[ -n "${underlay[@]}" ]]; then
         setup_ws --ros_distro "$ROS_DISTRO" --underlay "${underlay[@]}"
