@@ -513,10 +513,6 @@ function build_workspace {
 function test_workspace {
     local ws=$1
     shift
-    local ROS_DISTRO=$1
-    shift
-    apt_get_install build-essential
-
     local rest="$*"
 
     while [[ $rest =~ (.*)"--"(.*) ]]; do
@@ -529,7 +525,6 @@ function test_workspace {
         unset IFS
         rest=${BASH_REMATCH[1]}
     done
-    
     get_ros_version "$ROS_DISTRO"
     echo "This is the ROS Version"
     echo "ROS_VERSION=$ROS_VERSION"
